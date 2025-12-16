@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: optikorm_db
+      POSTGRES_USER: optikorm_user
+      POSTGRES_PASSWORD: optikorm_password
+    ports:
+      - "5432:5432"
+    restart: always
+
+  backend:
+    build:
+      context: ./optikorm_backend  
+      dockerfile: Dockerfile
+    volumes:
+      - static_files:/usr/src/app/staticfiles
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-django-production-secret-key-change-me-in-production}
+      DEBUG: ${DEBUG:-False}
+      DJANGO_SETTINGS_MODULE: optikorm_backend.settings
+      # PostgreSQL connection settings
+      DB_NAME: optikorm_db
+      DB_USER: optikorm_user
+      DB_PASSWORD: optikorm_password
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      - db
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: project/Dockerfile.prod
+    ports:
+      - "80:80"
+    volumes:
+      - static_files:/usr/share/nginx/html/static:ro
+    depends_on:
+      - backend
+    restart: always
+
+  locust:
+    build:
+      context: .
+      dockerfile: Dockerfile.locust
+    ports:
+      - "8089:8089"
+    depends_on:
+      - backend
+    environment:
+      LOCUST_PASSWORD: locustpass
+      CREATE_RESOURCES: "1"
+    profiles:
+      - load-test
+
+volumes:
+  postgres_data:
+  static_files:

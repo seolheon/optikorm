@@ -1,0 +1,12 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Install locust
+RUN pip install --no-cache-dir locust
+
+# Copy locustfile
+COPY locustfile.py .
+
+# Default command: run locust with Web UI (expose on all interfaces)
+CMD ["locust", "-f", "locustfile.py", "--host=http://backend:8000", "--web-port=8089", "--web-host=0.0.0.0"]
